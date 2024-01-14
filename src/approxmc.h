@@ -91,7 +91,6 @@ public:
     //Main options
     void set_up_log(std::string log_file_name);
     void set_verbosity(uint32_t verb);
-    void set_detach_warning();
     void set_seed(uint32_t seed);
     void set_epsilon(double epsilon);
     void set_delta(double delta);
@@ -106,6 +105,8 @@ public:
     void set_sparse(uint32_t sparse);
     void set_simplify(uint32_t simplify);
     void set_dump_intermediary_cnf(const int dump_intermediary_cnf);
+    void set_debug(int debug);
+    void set_force_sol_extension(int val);
 
     //Querying default values
     const std::vector<uint32_t>& get_sampling_set() const;

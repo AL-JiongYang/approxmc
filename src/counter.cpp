@@ -246,7 +246,7 @@ SolNum Counter::bounded_sol_count(
     double last_found_time = cpuTimeTotal();
     vector<vector<lbool>> models;
     while (solutions < maxSolutions) {
-        lbool ret = solver->solve(&new_assumps, true);
+        lbool ret = solver->solve(&new_assumps, !conf.force_sol_extension);
         assert(ret == l_False || ret == l_True);
         if ((conf.dump_intermediary_cnf >= 2 && ret == l_True) ||
             (conf.dump_intermediary_cnf >= 1 && ret == l_False)) {
@@ -362,14 +362,12 @@ void Counter::simplify()
     solver->set_intree_probe(1);
     solver->set_full_bve_iter_ratio(conf.var_elim_ratio);
     solver->set_full_bve(1);
-    solver->set_bva(1);
     solver->set_scc(1);
 
     solver->simplify();
 
     solver->set_sls(0);
     solver->set_full_bve(0);
-    solver->set_bva(0);
 }
 
 //Set up probabilities, threshold and measurements
@@ -459,9 +457,7 @@ ApproxMC::SolCount Counter::count()
 ApproxMC::SolCount Counter::calc_est_count()
 {
     ApproxMC::SolCount ret_count;
-    if (numHashList.empty() || numCountList.empty()) {
-        return ret_count;
-    }
+    if (numHashList.empty() || numCountList.empty()) return ret_count;
 
     const auto minHash = findMin(numHashList);
     auto cnt_it = numCountList.begin();
@@ -469,6 +465,11 @@ ApproxMC::SolCount Counter::calc_est_count()
         ; hash_it != numHashList.end() && cnt_it != numCountList.end()
         ; hash_it++, cnt_it++
     ) {
+        if ((*hash_it) - minHash > 10) {
+            cout << "Internal ERROR: Something is VERY fishy, the difference between each count must"
+                " never be this large. Please report this bug to the maintainers" << endl;
+            exit(-1);
+        }
         *cnt_it *= pow(2, (*hash_it) - minHash);
     }
     ret_count.valid = true;
@@ -803,8 +804,7 @@ void Counter::check_model(
     const vector<lbool>& model,
     const HashesModels* const hm,
     const uint32_t hashCount
-)
-{
+) {
     for(uint32_t var: conf.sampling_set) assert(model[var] != l_Undef);
     if (conf.debug) {
         assert(conf.force_sol_extension);
