@@ -19,10 +19,6 @@
 # THE SOFTWARE.
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_CXX_STANDARD 11)
-
-enable_language( CXX )
 
 message(STATUS "LIB directory is '${CMAKE_INSTALL_LIBDIR}'")
 message(STATUS "BIN directory is '${CMAKE_INSTALL_BINDIR}'")
@@ -42,11 +38,6 @@ endif()
 if(POLICY CMP0026)
     cmake_policy(SET CMP0026 NEW)
 endif()
-
-# -----------------------------------------------------------------------------
-# Provide scripts dir for included cmakes to use
-# -----------------------------------------------------------------------------
-set(APPROXMCS_SCRIPTS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 
 # -----------------------------------------------------------------------------
 # Make RelWithDebInfo the default build type if otherwise not set
@@ -84,15 +75,39 @@ foreach (build_config ${build_types})
 endforeach()
 
 PROJECT(approxmc)
-
-include (GenerateExportHeader)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+enable_language( CXX )
+enable_language( C )
 include (GNUInstallDirs)
+include (GenerateExportHeader)
 
 # contains some library search cmake scripts
 SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 # generate JSON file of compile commands -- useful for code extension
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
+# static compilation
+option(BUILD_SHARED_LIBS "Build the shared library" ON)
+option(STATICCOMPILE "Compile to static executable" OFF)
+if (STATICCOMPILE)
+    set(BUILD_SHARED_LIBS OFF)
+endif()
+
+if ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
+    if(NOT BUILD_SHARED_LIBS)
+        MESSAGE(STATUS "Compiling statically")
+        if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+        endif()
+        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    else()
+        MESSAGE(STATUS "Compiling for dynamic library use")
+    endif()
+endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package (Threads REQUIRED)
@@ -152,29 +167,18 @@ else()
     add_definitions(-D_FORTIFY_SOURCE=0)
 endif()
 
-# static compilation
-option(BUILD_SHARED_LIBS "Build the shared library" ON)
-option(STATICCOMPILE "Compile to static executable" OFF)
-if (STATICCOMPILE)
-    set(BUILD_SHARED_LIBS OFF)
-    set(Boost_USE_STATIC_LIBS ON)
-endif()
-
 
 # Note: O3 gives slight speed increase, 1 more solved from SAT Comp'14 @ 3600s
 if (NOT MSVC)
     add_compile_options( -g)
-    add_compile_options( -pthread )
 
-    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-O3>")
-    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-mtune=native>")
+    add_compile_options("$<$<CONFIG:RelWithDebInfo>:-O3>")
 
-    add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
-    add_compile_options("$<$<CONFIG:RELEASE>:-g0>")
-    add_compile_options("$<$<CONFIG:RELEASE>:-DNDEBUG>")
-    add_compile_options("$<$<CONFIG:RELEASE>:-mtune=native>")
+    add_compile_options("$<$<CONFIG:Release>:-O3>")
+    add_compile_options("$<$<CONFIG:Release>:-g0>")
+    add_compile_options("$<$<CONFIG:Release>:-DNDEBUG>")
 
-    add_compile_options("$<$<CONFIG:DEBUG>:-O0>")
+    add_compile_options("$<$<CONFIG:Debug>:-O0>")
 
 else()
     # see https://msdn.microsoft.com/en-us/library/fwkeyyhe.aspx for details
@@ -246,10 +250,6 @@ else()
 endif()
 
 option(ENABLE_TESTING "Enable testing" OFF)
-option(COVERAGE "Build with coverage check" OFF)
-if (COVERAGE AND NOT STATICCOMPILE)
-    MESSAGE(FATAL_ERROR "Coverage can only be computed on static compilation")
-endif()
 
 if (NOT WIN32)
     add_cxx_flag_if_supported("-Wall")
@@ -258,6 +258,7 @@ if (NOT WIN32)
     add_cxx_flag_if_supported("-Wsign-compare")
     if (NOT CMAKE_BUILD_TYPE STREQUAL "Release")
         add_cxx_flag_if_supported("-fno-omit-frame-pointer")
+        add_cxx_flag_if_supported("-g")
     endif()
     add_cxx_flag_if_supported("-Wtype-limits")
     add_cxx_flag_if_supported("-Wuninitialized")
@@ -265,7 +266,8 @@ if (NOT WIN32)
     add_cxx_flag_if_supported("-Wstrict-aliasing")
     add_cxx_flag_if_supported("-Wpointer-arith")
     add_cxx_flag_if_supported("-Wheader-guard")
-    if(NOT ENABLE_TESTING AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT COVERAGE)
+    add_cxx_flag_if_supported("-msse4.2")
+    if(NOT ENABLE_TESTING AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         add_cxx_flag_if_supported("-fvisibility=hidden")
     endif()
     add_cxx_flag_if_supported("-Wpointer-arith")
@@ -273,57 +275,10 @@ if (NOT WIN32)
     add_cxx_flag_if_supported("-Winit-self")
     add_cxx_flag_if_supported("-Wparentheses")
     add_cxx_flag_if_supported("-Wunreachable-code")
-    add_cxx_flag_if_supported("-g")
-    add_compile_options("-fPIC")
-
-    # add_cxx_flag_if_supported("-flto") # slow compile and not enough benefits
-    #add_cxx_flag_if_supported("-fno-exceptions")
 endif()
 
 if ((NOT WIN32) AND (NOT ENABLE_TESTING))
     add_cxx_flag_if_supported("-fvisibility=hidden")
-endif()
-
-if (COVERAGE)
-    add_compile_options("--coverage")
-    SET(CMAKE_EXE_LINKER_FLAGS "--coverage")
-endif()
-
-
-# -----------------------------------------------------------------------------
-# Perhaps not needed?
-# -----------------------------------------------------------------------------
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(CMAKE_EXE_LINKER_FLAGS " ${CMAKE_EXE_LINKER_FLAGS} -Wl,--discard-all -Wl,--build-id=sha1")
-endif()
-
-
-# -----------------------------------------------------------------------------
-# Staticcompile on Linux
-# -----------------------------------------------------------------------------
-if ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
-    if(STATICCOMPILE)
-        MESSAGE(STATUS "Compiling for static library use")
-        if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -Wl,--whole-archive -lpthread -Wl,--no-whole-archive -static ")
-        endif()
-
-        SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-
-        # removing -rdynamic that's automatically added
-        foreach (language CXX C)
-            set(VAR_TO_MODIFY "CMAKE_SHARED_LIBRARY_LINK_${language}_FLAGS")
-            string(REGEX REPLACE "(^| )-rdynamic($| )"
-                                 " "
-                                 replacement
-                                 "${${VAR_TO_MODIFY}}")
-            #message("Original (${VAR_TO_MODIFY}) is ${${VAR_TO_MODIFY}} replacement is ${replacement}")
-            set(${VAR_TO_MODIFY} "${replacement}" CACHE STRING "Default flags for ${build_config} configuration" FORCE)
-        endforeach()
-    else()
-        add_definitions(-DBOOST_TEST_DYN_LINK)
-        MESSAGE(STATUS "Compiling for dynamic library use")
-    endif()
 endif()
 
 set(DEF_INSTALL_CMAKE_DIR lib/cmake/approxmc)
@@ -350,7 +305,7 @@ if (GIT_EXECUTABLE)
 else()
   set(GIT_SHA "GIT-hash-notfound")
 endif()
-set(APPROXMC_FULL_VERSION "4.1.23")
+set(APPROXMC_FULL_VERSION "4.2.0")
 
 string(REPLACE "." ";" APPROXMC_FULL_VERSION_LIST ${APPROXMC_FULL_VERSION})
 SetVersionNumber("PROJECT" ${APPROXMC_FULL_VERSION_LIST})
@@ -422,10 +377,6 @@ endmacro()
 # -----------------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------------
-set (boost_components "")
-set(boost_components ${boost_components} program_options serialization)
-find_package( Boost 1.46 COMPONENTS ${boost_components})
-
 option(NOZLIB "Don't use zlib" OFF)
 if (NOT NOZLIB AND NOT (STATICCOMPILE AND WIN32))
     find_package(ZLIB)
@@ -439,48 +390,29 @@ if (NOT NOZLIB AND NOT (STATICCOMPILE AND WIN32))
     ENDIF (ZLIB_FOUND)
 endif()
 
-find_package(GMP)
-if (GMP_FOUND)
-    message(STATUS "GMP dynamic lib: ${GMP_LIBRARY}")
-    message(STATUS "GMP include header location: ${GMP_INCLUDE_DIRS}")
-else()
-    message(FATAL_ERROR  "Cannot find GMP. Please install it! Exiting.")
-endif()
+find_package(GMP REQUIRED)
 
-find_package(cryptominisat5 CONFIG)
-if (cryptominisat5_FOUND)
-    message(STATUS "Found CryptoMiniSat 5.x")
-    message(STATUS "CryptoMiniSat5 dynamic lib: ${CRYPTOMINISAT5_LIBRARIES}")
-    message(STATUS "CryptoMiniSat5 static lib:  ${CRYPTOMINISAT5_STATIC_LIBRARIES}")
-    message(STATUS "CryptoMiniSat5 static lib deps: ${CRYPTOMINISAT5_STATIC_LIBRARIES_DEPS}")
-    message(STATUS "CryptoMiniSat5 include dirs: ${CRYPTOMINISAT5_INCLUDE_DIRS}")
-else()
-    message(FATAL_ERROR "Cannot find CryptoMiniSat5. Please install it! Exiting.")
-endif()
+find_package(cryptominisat5 CONFIG REQUIRED)
+message(STATUS "Found CryptoMiniSat 5.x")
+message(STATUS "CryptoMiniSat5 dynamic lib: ${CRYPTOMINISAT5_LIBRARIES}")
+message(STATUS "CryptoMiniSat5 static lib:  ${CRYPTOMINISAT5_STATIC_LIBRARIES}")
+message(STATUS "CryptoMiniSat5 static lib deps: ${CRYPTOMINISAT5_STATIC_LIBRARIES_DEPS}")
+message(STATUS "CryptoMiniSat5 include dirs: ${CRYPTOMINISAT5_INCLUDE_DIRS}")
 
-find_package(arjun CONFIG)
-if (arjun_FOUND)
-    message(STATUS "Found Arjun")
-    message(STATUS "Arjun dynamic lib : ${ARJUN_LIBRARIES}")
-    message(STATUS "Arjun include dirs: ${ARJUN_INCLUDE_DIRS}")
-else()
-    message(FATAL_ERROR "Cannot find Arjun. Please install it! Exiting.")
-endif()
-
-find_package(louvain_communities CONFIG)
-if (louvain_communities_FOUND)
-    message(STATUS "Found Louvain Communities library")
-    message(STATUS "Louvain Communities dynamic lib: ${LOUVAIN_COMMUNITIES_LIBRARIES}")
-    message(STATUS "Louvain Communities include dirs: ${LOUVAIN_COMMUNITIES_INCLUDE_DIRS}")
-else()
-    message(WARNING "Cannot find Louvain Communities libraries.")
-endif()
+find_package(arjun CONFIG REQUIRED)
+message(STATUS "Found Arjun")
+message(STATUS "Arjun dynamic lib : ${ARJUN_LIBRARIES}")
+message(STATUS "Arjun include dirs: ${ARJUN_INCLUDE_DIRS}")
+find_package(sbva CONFIG REQUIRED)
 
 # -----------------------------------------------------------------------------
 # Provide an export name to be used by targets that wish to export themselves.
 # -----------------------------------------------------------------------------
 set(APPROXMC_EXPORT_NAME "approxmcTargets")
 
+if (ENABLE_TESTING)
+    add_subdirectory(tests/gtest)
+endif()
 add_subdirectory(src apx-src)
 
 # -----------------------------------------------------------------------------

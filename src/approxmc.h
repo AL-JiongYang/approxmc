@@ -27,10 +27,10 @@
  */
 
 
-#ifndef APPROXMC_H__
-#define APPROXMC_H__
+#pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 #ifdef CMS_LOCAL_BUILD
@@ -41,17 +41,16 @@
 namespace ApproxMC {
 
 #ifdef _WIN32
-struct __declspec(dllexport) SolCount
+class __declspec(dllexport) SolCount
 #else
-struct SolCount
+class SolCount
 #endif
 {
-    void clear()
-    {
+    public:
+    void clear() {
         SolCount tmp;
         *this = tmp;
     }
-
     bool valid = false;
     uint32_t hashCount = 0;
     uint32_t cellSolCount = 0;
@@ -65,11 +64,22 @@ class AppMC
 #endif
 {
 public:
-    AppMC();
+    AppMC(const std::unique_ptr<CMSat::FieldGen>& _fg);
     ~AppMC();
-    void set_projection_set(const std::vector<uint32_t>& vars);
     ApproxMC::SolCount count();
     bool find_one_solution();
+
+    // Sampling set
+    void set_sampl_vars(const std::vector<uint32_t>& vars);
+    void set_opt_sampl_vars(const std::vector<uint32_t>& vars);
+    bool get_sampl_vars_set() const;
+    bool get_opt_sampl_vars_set() const { return false; }
+    const std::vector<uint32_t>& get_sampl_vars() const;
+    void set_multiplier_weight(const std::unique_ptr<CMSat::Field>& weight);
+    const std::unique_ptr<CMSat::Field>& get_multiplier_weight() const;
+    void set_weighted(const bool weighted);
+    void set_projected(const bool projected);
+    void set_lit_weight(const CMSat::Lit& lit, const std::unique_ptr<CMSat::Field>& weight);
 
     // Adding constraints
     void new_var();
@@ -79,17 +89,12 @@ public:
     bool add_red_clause(const std::vector<CMSat::Lit>& lits);
     bool add_xor_clause(const std::vector<CMSat::Lit>& lits, bool rhs);
     bool add_xor_clause(const std::vector<uint32_t>& vars, bool rhs);
-    bool add_bnn_clause(
-        const std::vector<CMSat::Lit>& lits,
-        signed cutoff,
-        CMSat::Lit out = CMSat::lit_Undef);
 
     // Information about approxmc
-    std::string get_version_info();
+    static std::string get_version_sha1();
     void print_stats(const double start_time);
 
     //Main options
-    void set_up_log(std::string log_file_name);
     void set_verbosity(uint32_t verb);
     void set_seed(uint32_t seed);
     void set_epsilon(double epsilon);
@@ -126,5 +131,3 @@ private:
 };
 
 }
-
-#endif

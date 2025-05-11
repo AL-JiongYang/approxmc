@@ -26,16 +26,20 @@
  THE SOFTWARE.
  */
 
-#ifndef APPMC_CONFIG_H__
-#define APPMC_CONFIG_H__
+#pragma once
 
+#include <memory>
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <gmpxx.h>
+#include <cryptominisat5/solvertypesmini.h>
 
 namespace AppMCInt {
 
-struct Config {
+class Config {
+public:
+    Config(const std::unique_ptr<CMSat::FieldGen>& _fg) : multiplier_weight(_fg->one()) {}
     uint32_t start_iter = 0;
     double epsilon = 0.80; //Tolerance.  CAV-2020 paper default
     double delta = 0.2;    //Confidence. CAV-2020 paper default
@@ -46,13 +50,14 @@ struct Config {
     int simplify = 1;
     double var_elim_ratio = 1.6;
     int reuse_models = 1;
-    std::vector<uint32_t> sampling_set;
     std::string logfilename = "";
     int dump_intermediary_cnf = 0;
     int debug = 0;
     int force_sol_extension = false;
+
+    std::vector<uint32_t> sampl_vars;
+    bool sampl_vars_set = false;
+    std::unique_ptr<CMSat::Field> multiplier_weight = nullptr;
 };
 
 }
-
-#endif //APPMCCONFIG
