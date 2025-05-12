@@ -3,11 +3,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     arjun = {
-      url = "github:meelgroup/arjun/synthesis2";
+      url = "github:meelgroup/arjun/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     cryptominisat = {
-      url = "github:msoos/cryptominisat/synthesis";
+      url = "github:msoos/cryptominisat/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     sbva = {
@@ -63,7 +63,6 @@
             arjun
             sbva
           ];
-          postInstall = ''mv $out/include/approxmc/approxmc.h $out/include/approxmc.h'';
         };
 
     in
