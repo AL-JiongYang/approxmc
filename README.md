@@ -2,17 +2,18 @@
 ![build](https://github.com/meelgroup/approxmc/workflows/build/badge.svg)
 
 # ApproxMC6: Approximate Model Counter
-ApproxMCv6 is a state-of-the-art approximate model counter utilizing an
-improved version of CryptoMiniSat to give approximate model counts to problems
-of size and complexity that were not possible before.
+ApproxMCv6 is a state-of-the-art approximate model counter using
+[Arjun](https://github.com/meelgroup/arjun) and
+[CryptoMiniSat](https://github.com/msoos/cryptominisat) to give probabilistic
+approximate model counts to problems of size and complexity that were not
+possible before.
 
 This work is the culmination of work by a number of people, including but not
 limited to, Mate Soos, Jiong Yang, Stephan Gocht, Yash Pote, and Kuldeep S.
 Meel. Publications: published [in
 AAAI-19](https://www.cs.toronto.edu/~meel/Papers/aaai19-sm.pdf), [in
 CAV2020](https://www.cs.toronto.edu/~meel/Papers/cav20-sgm.pdf), and [in
-CAV2023](https://arxiv.org/pdf/2305.09247). A large part of the work is in
-[CryptoMiniSat](https://github.com/msoos/cryptominisat).
+CAV2023](https://arxiv.org/pdf/2305.09247).
 
 ApproxMC handles CNF formulas and performs approximate counting.
 1. If you are interested in exact model counting, visit our exact counter
@@ -23,9 +24,15 @@ ApproxMC handles CNF formulas and performs approximate counting.
 ## Installation
 We recommend using a prebuilt binary from our [release
 page](https://github.com/meelgroup/approxmc/releases) which contains binaries
-for many different platforms. You can also install the python package as per
-below. In case you need to re-build the binary, you can follow the [GitHub
-Action](https://github.com/meelgroup/approxmc/actions).
+for many different platforms. The second best thing to use is Nix. Simply [install
+nix](https://nixos.org/download/) and then:
+```shell
+git clone https://github.com/meelgroup/approxmc
+cd approxmc
+nix-shell
+```
+
+Then you will have `approxmc` binary available and ready to use.
 
 ## Providing a Projection Set
 For some applications, one is not interested in solutions over all the
@@ -77,6 +84,13 @@ independent support. This is because for variables 3 and 4 we have banned the
 `false,false` solution, so out of their 4 possible settings, one is banned.
 Therefore, we have `2^5 * (4-1) = 96` solutions.
 
+## Guarantees
+ApproxMC provides so-called "PAC", or Probably Approximately Correct,
+guarantees. In less fancy words, the system guarantees that the solution found
+is within a certain tolerance (called "epsilon") with a certain probability
+(called "delta"). The default tolerance and probability, i.e. epsilon and delta
+values, are set to 0.8 and 0.2, respectively. Both values are configurable.
+
 ## How to use the Python interface
 Install using pip:
 ```bash
@@ -111,13 +125,6 @@ print("Approximate count is: %d*2**%d" % (count[0], count[1]))
 
 This now prints `Approximate count is: 7*2**6`, which corresponds to the
 approximate count of models, projected over variables 1..10.
-
-## Guarantees
-ApproxMC provides so-called "PAC", or Probably Approximately Correct,
-guarantees. In less fancy words, the system guarantees that the solution found
-is within a certain tolerance (called "epsilon") with a certain probability
-(called "delta"). The default tolerance and probability, i.e. epsilon and delta
-values, are set to 0.8 and 0.2, respectively. Both values are configurable.
 
 ### Library usage
 The system can be used as a library:
@@ -167,7 +174,9 @@ significant speedup if the number of solutions is very large.
 
 
 ## Issues, questions, bugs, etc.
-Please click on "issues" at the top and [create a new issue](https://github.com/meelgroup/mis/issues/new). All issues are responded to promptly.
+Please click on "issues" at the top and [create a new
+issue](https://github.com/meelgroup/mis/issues/new). All issues are responded
+to promptly.
 
 ## How to Cite
 If you use ApproxMC, please cite the following papers:
