@@ -36,7 +36,6 @@
 #include <set>
 #include <gmp.h>
 
-#include "time_mem.h"
 #include "approxmc.h"
 #include "time_mem.h"
 #include <cryptominisat5/solvertypesmini.h>
@@ -159,7 +158,7 @@ void parse_supported_options(int argc, char** argv) {
     try {
         program.parse_args(argc, argv);
         if (program.is_used("--help")) {
-            cout << "Probilistic Approximate Counter" << endl << endl
+            cout << "Probabilistic Approximate Counter" << endl << endl
             << "approxmc [options] inputfile" << endl;
             cout << program << endl;
             exit(0);
@@ -192,45 +191,18 @@ void print_final_indep_set(const vector<uint32_t>& indep_set, uint32_t orig_samp
     << " %" << endl;
 }
 
-template<class T> void read_stdin(T* myreader) {
-    cout << "c Reading from standard input... Use '-h' or '--help' for help." << endl;
-
-    #ifndef USE_ZLIB
-    FILE * in = stdin;
-    #else
-    gzFile in = gzdopen(0, "rb"); //opens stdin, which is 0
-    #endif
-
-    if (in == nullptr) {
-        std::cerr << "ERROR! Could not open standard input for reading" << endl;
-        std::exit(1);
-    }
-
-    #ifndef USE_ZLIB
-    DimacsParser<StreamBuffer<FILE*, FN>, T> parser(myreader, nullptr, verb);
-    #else
-    DimacsParser<StreamBuffer<gzFile, GZ>, T> parser(myreader, nullptr, verb);
-    #endif
-
-    if (!parser.parse_DIMACS(in, false)) exit(-1);
-
-    #ifdef USE_ZLIB
-    gzclose(in);
-    #endif
-}
-
-void print_num_solutions(uint32_t cell_sol_cnt, uint32_t hash_count, const std::unique_ptr<Field>& mult) {
-    const CMSat::Field* ptr = mult.get();
-    const ArjunNS::FMpz* od = dynamic_cast<const ArjunNS::FMpz*>(ptr);
+void print_num_solutions(uint32_t cell_sol_cnt, uint32_t hash_count, const std::unique_ptr<Field>& mult_ptr) {
+    const CMSat::Field* ptr = mult_ptr.get();
+    const ArjunNS::FMpq* mult = dynamic_cast<const ArjunNS::FMpq*>(ptr);
     cout << "c [appmc] Number of solutions is: "
-    << cell_sol_cnt << "*2**" << hash_count << "*" << od->val << endl;
-    if (cell_sol_cnt == 0) cout << "s UNSATISFIABLE" << endl;
+    << cell_sol_cnt << "*2**" << hash_count << "*" << mult->val << endl;
+    if (cell_sol_cnt == 0 || mult->val == 0) cout << "s UNSATISFIABLE" << endl;
     else cout << "s SATISFIABLE" << endl;
 
     mpz_class num_sols(2);
     mpz_pow_ui(num_sols.get_mpz_t(), num_sols.get_mpz_t(), hash_count);
     num_sols *= cell_sol_cnt;
-    mpq_class final = od->val * num_sols;
+    auto final = mult->val * num_sols;
 
     cout << "s mc " << final << endl;
 }
@@ -286,7 +258,7 @@ template<class T> void parse_file(const std::string& filename, T* reader) {
     for(uint32_t i = 0; i < reader->nVars(); i++) tmp.push_back(i);
     reader->set_sampl_vars(tmp);
   } else {
-    // Check if CNF has all vars as indep. Then its's all_indep
+    // Check if CNF has all vars as indep. Then it's all_indep
     set<uint32_t> tmp;
     for(auto const& s: reader->get_sampl_vars()) {
       if (s >= reader->nVars()) {
@@ -317,7 +289,7 @@ int main(int argc, char** argv)
         if (i+1 < argc) command_line += " ";
     }
 
-    fg = std::make_unique<ArjunNS::FGenMpz>();
+    fg = std::make_unique<ArjunNS::FGenMpq>();
     appmc = new ApproxMC::AppMC(fg);
     simp_conf.appmc = true;
     simp_conf.oracle_sparsify = false;
